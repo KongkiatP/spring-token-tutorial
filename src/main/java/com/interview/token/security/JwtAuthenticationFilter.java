@@ -17,9 +17,12 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
+    private final CustomUserDetailsService userDetailsService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
+                                    CustomUserDetailsService userDetailsService) {
         this.tokenProvider = tokenProvider;
+        this.userDetailsService = userDetailsService;
     }
 
     @Override
@@ -40,11 +43,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             tokenProvider.validateToken(token);
-            String username = tokenProvider.getUsernameFromToken(token);
+            /* String username = tokenProvider.getUsernameFromToken(token);
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(username, null, List.of());
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request)); */
+
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,               // principal = UserDetails
+                            null,                      // credentials = null (ไม่เก็บ password)
+                            userDetails.getAuthorities() // สิทธิ์/role จาก DB
+                    );
+            authentication.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request)
+            );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             filterChain.doFilter(request, response);
